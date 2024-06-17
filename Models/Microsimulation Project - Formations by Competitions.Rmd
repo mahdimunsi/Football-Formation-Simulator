@@ -1,0 +1,91 @@
+---
+title: "Microsimulation Project: Formations by Competitions"
+author: "Mahdi Munshi"
+date: "2024-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+While we had a nice attempt at making a microsimulation model before, it had a missive limitation of not considering a lot of important factors; and one of them is overly generalizing across different leagues. In this attempt, I will try to look at the top 5 European leagues, and make the model taking account of that.
+
+
+## Loading necessary packages and the dataset
+
+```{r}
+library(tidyverse)
+
+# Load the dataset
+data <- read.csv("Microsimulation_Games_2.csv")
+
+# Check for missing values in the new column as well
+data <- data %>%
+  drop_na(home_club_formation, away_club_formation, competition_name) %>%
+  mutate(winner = ifelse(winner_club_name == home_club_name, "home",
+                         ifelse(winner_club_name == away_club_name, "away", "draw")))
+
+```
+
+
+## Visualizing Match Outcomes by Formations and Competitions
+
+Like the previous attempt, we make another faceted plot visualizing the match outcomes by formation. However, this time each facet representing a different competition (LaLiga, Ligue 1, Serie A, Premier League, and Bundesliga). This allowed us to compare the match outcome distributions across different formation combinations and competitions.
+
+```{r}
+library(ggplot2)
+
+# Visualize the distribution of match outcomes by formations and competitions
+ggplot(data, aes(x = home_club_formation, fill = winner)) +
+  geom_bar(position = "fill") +
+  facet_grid(competition_name ~ away_club_formation) +
+  labs(title = "Outcome by Formations and Competitions", x = "Home Club Formation", y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+As usual, it looks very confusing in the knitted report, however, the enlarged version gives decent insights on the relationships between different formations and competitions.
+
+
+## Training the Predictive Model
+
+
+Just like before, we are using the caret package to train a multinomial logistic regression model - the exact same model, however, the name of the competition being an important predictor this time.
+
+
+```{r}
+library(caret)
+
+
+# Train the model
+model <- train(winner ~ home_club_formation + away_club_formation + competition_name, data = data,
+               method = "multinom")
+
+```
+
+
+## Simulating Match Outcomes
+
+This time, we changed the function in such way that we can simulate the likely outcome of a match between any two teams, based solely on their chosen formations and most importantly, the competition they are playing in.
+
+```{r}
+simulate_match <- function(home_formation, away_formation, competition) {
+  predict(model, newdata = data.frame(home_club_formation = home_formation,
+                                      away_club_formation = away_formation,
+                                      competition_name = competition), type = "prob")
+}
+```
+
+
+Let's look at an example of the simulation.
+
+```{r}
+simulate_match("3-1-4-2", "4-2-3-1", "LaLiga") *100
+```
+
+We simulated a match between two teams playing in the "3-1-4-2" and "4-2-3-1" formations in LaLiga. The simulation showed that the predicted probability of a home win was approximately 41%, the probability of an away win was around 35%, and the probability of a draw was roughly 24%. This feels like a much better model than the previous one, however, football being a complex game, with a lot of factors involved into match outcomes, not just formations, we definitely can make much much better models addressing a lot more factors. However, I am personally satisfied with the model for now, and thus, I am trying to build a shiny app where one can input through dropdowns (do not need to run the fucntion codes and type in the inputs manually) in a seperate R script.
+
+
+

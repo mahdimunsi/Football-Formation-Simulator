@@ -1,0 +1,84 @@
+---
+title: "Microsimulation Project: Formations Attempt"
+author: "Mahdi Munshi"
+date: "2024-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+This is my initial attempt to building a microsimulation model where I can look at the winning probabilities for football teams based on the combination of team formations. The foundation of this analysis is the "Microsimulation_Games_2.csv" dataset, which we got by subsetting the "game.csv" data frame, and contains detailed information about matches from the top five European leagues: LaLiga, Ligue 1, Serie A, Premier League, and Bundesliga. The dataset includes variables such as the home and away team names, the home and away team formations, the final score, and the match winner.
+
+
+## Loading necessary packages and the dataset
+
+```{r}
+library(tidyverse)
+
+data <- read.csv("Microsimulation_Games_2.csv")
+
+# Cleaning missing values
+data <- data %>%
+  drop_na(home_club_formation, away_club_formation) %>%
+  mutate(winner = ifelse(winner_club_name == home_club_name, "home",
+                         ifelse(winner_club_name == away_club_name, "away", "draw")))
+```
+
+
+## Visualizing the distribution of match outcomes by formations
+
+To gain a better understanding of the relationship between team formations and match outcomes, we created a visualization through a stacked bar chart, where the x-axis represented the home team's formation, the y-axis showed the proportion of matches, and the bars were filled based on the match outcome (home win, away win, or draw).
+The chart was further divided into facets, with each facet representing a different away team formation. This allowed us to compare the match outcome distributions across various formation combinations.
+
+```{r}
+ggplot(data, aes(x = home_club_formation, fill = winner)) +
+  geom_bar(position = "fill") +
+  facet_wrap(~away_club_formation) +
+  labs(title = "Outcome by Formations", x = "Home Club Formation", y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+While the faceted chart might look very confusing in the knitted report, an enlarged version actually gives some decent insights on teh relationships between different formations.
+
+
+## Training the Predictive Model
+
+Building on the insights gained from the visualization, we proceeded to develop a predictive model that could estimate the probability of each match outcome (home win, away win, or draw) based on the home and away team formations.
+We utilized the caret package in R to train a multinomial logistic regression model, which is well-suited for predicting categorical outcomes with more than two classes (in this case, the three possible match results). The model was trained on the "winner" variable, using the "home_club_formation" and "away_club_formation" variables as predictors.
+
+The multinomial logistic regression model is a powerful tool for this type of analysis, as it allows us to estimate the probability of each outcome (home win, away win, or draw) given the specific formation combination. This information can be invaluable for coaches, analysts, and bettors, as it can inform strategic decision-making and provide a more data-driven approach to predicting match results.
+
+
+```{r}
+library(caret)
+model <- train(winner ~ home_club_formation + away_club_formation, data = data,
+               method = "multinom")
+```
+
+
+## Simulating Match Outcomes
+
+To demonstrate the practical application of the trained model, we created a function called simulate_match that takes the home and away team formations as inputs and returns the predicted probabilities of each match outcome.
+
+
+```{r}
+# Function to simulate match outcome
+simulate_match <- function(home_formation, away_formation) {
+  predict(model, newdata = data.frame(home_club_formation = home_formation,
+                                      away_club_formation = away_formation), type = "prob")
+}
+
+# Example simulation
+simulate_match("4-3-3", "4-3-3") *100
+
+```
+
+Using this function, we can simulate the likely outcome of a match between any two teams, based solely on their chosen formations. This can be a useful tool for coaches and analysts to evaluate the potential impact of their tactical decisions, as well as for bettors to assess the likelihood of different match results.
+As an example, we simulated a match between two teams both playing in the "4-3-3" formation. The simulation showed that the predicted probability of a home win was approximately 45%, the probability of an away win was around 32%, and the probability of a draw was roughly 23%.
+
+This type of simulation can provide valuable insights and inform strategic planning, as it allows stakeholders to anticipate the potential outcomes of a match based on the formations employed by the teams.
+
+However, this is a very simple model, with no factor having any impact on the simulation. By focusing solely on team formations as the predictive variables, we have simplified the model and overlooked other factors that may influence match outcomes, and we have created a strong generalization across leagues. In my next attempt, I will try to address this specific factor and try to make a model that simulates matches between different team formations across the top 5 European leagues.
