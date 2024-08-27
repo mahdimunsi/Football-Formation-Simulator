@@ -30,6 +30,8 @@ simulate_match("3-1-4-2", "4-2-3-1", "LaLiga") *100
 ################################################################################
 
 # Building the Shiny App
+library(shiny)
+library(shinyWidgets)
 
 ui <- fluidPage(
   titlePanel("Microsimulation Football Match Predictor"),
